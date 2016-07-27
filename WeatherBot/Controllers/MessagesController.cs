@@ -23,10 +23,55 @@ namespace WeatherBot
             {
                 ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
                 // calculate something for us to return
-                string city = (activity.Text ?? string.Empty);
+                string queryString = (activity.Text ?? string.Empty);
+                string city = string.Empty;
+                string replyMsg = string.Empty;
+
+
+                var lData = await LuisService.ParseUserInput(queryString);
+
+                if (lData != null)
+                {
+                    if (lData.intents.Count() > 1)
+                    {
+                        switch (lData.intents[0].intent)
+                        {
+                            case "GetWeather":
+                                {
+                                    if (lData.entities.Count() == 0)
+                                    {
+                                        replyMsg = "do not know where you are looking for?";
+                                    }
+                                    else if (lData.entities[0].type == "City")
+                                    {
+                                        city = lData.entities[0].entity;
+                                        replyMsg = await GetWeather(city);
+                                    }
+                                    else
+                                        replyMsg = "I do not understand your city...";
+
+                                }
+                                break;
+                            default:
+                                {
+                                    replyMsg = "I can only check the weather now...";
+                                    break;
+                                }
+
+                        }
+                    }
+
+                    else
+                        replyMsg = "I do not understand your quesiton";
+                       
+
+
+                }
+                else
+                    replyMsg = "Sorry I do not understand, please speak English";
 
                 // return our reply to the user
-                string replyMsg = await GetWeather(city);
+               
                 Activity reply = activity.CreateReply(replyMsg);
                 await connector.Conversations.ReplyToActivityAsync(reply);
             }
@@ -46,7 +91,7 @@ namespace WeatherBot
 
             WeatherData wd = new WeatherData();
 
-                wd = await WeatherService.GetWeatherfromService(strCity);
+            wd = await WeatherService.GetWeatherfromService(strCity);
 
 
             // return our reply to the user
@@ -64,7 +109,7 @@ namespace WeatherBot
             {
 
 
-                strRet = string.Format(" {0} now, {1}: {2} and {3} Degree", wd.city, wd.weathermain,wd.weatherdescription,wd.temp);
+                strRet = string.Format(" {0} now, {1}: {2} and {3} Degree", wd.city, wd.weathermain, wd.weatherdescription, wd.temp);
 
             }
 
@@ -73,6 +118,9 @@ namespace WeatherBot
             return strRet;
 
         }
+      
+    
+
         private Activity HandleSystemMessage(Activity message)
         {
             if (message.Type == ActivityTypes.DeleteUserData)
